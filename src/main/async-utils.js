@@ -47,8 +47,10 @@ async function mapWithConcurrency(items, concurrency, worker) {
 function withTimeout(promise, ms, label) {
   let timer = null;
   const timeout = new Promise((_, reject) => {
+    // Deliberately NOT unref'd: Electron's main loop never exits on an empty
+    // queue, and an unref'd timer lets a plain Node process (tests, Node 20)
+    // drain the loop before the timeout can fire.
     timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
-    if (timer.unref) timer.unref();
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }

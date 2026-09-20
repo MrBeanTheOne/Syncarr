@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -43,14 +43,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Limit to the platforms electron-builder can run on the matching host.
+        # Windows-only for now: the mac/linux electron-builder config points
+        # at build/icon.ico (no .icns/.png exists yet), so those builds fail.
+        # Re-add macos-latest (dist:mac) / ubuntu-latest (dist:linux) once
+        # platform icons are added.
         include:
           - os: windows-latest
             build_script: dist:win
-          - os: macos-latest
-            build_script: dist:mac
-          - os: ubuntu-latest
-            build_script: dist:linux
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,7 +57,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies

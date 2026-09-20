@@ -81,10 +81,12 @@ function sendTelegramMessage(settingsInput, text, options = {}) {
       });
     });
 
+    // Deliberately NOT unref'd: settle() clears it, Electron's loop never
+    // exits on an empty queue, and unref lets a plain Node process (tests,
+    // Node 20) drain the loop before the deadline can fire.
     deadline = setTimeout(() => {
       req.destroy(new Error('Telegram request deadline exceeded.'));
     }, deadlineMs);
-    if (typeof deadline.unref === 'function') deadline.unref();
 
     req.on('timeout', () => {
       req.destroy(new Error('Telegram request timed out.'));

@@ -171,7 +171,10 @@ test('a journal with damaged lines refuses automatic rollback', async (t) => {
 
 // --- M7: mid-list apply failure stops cleanly and reports what was applied ---
 
-test('a mid-list apply failure reports the applied prefix instead of rejecting', async (t) => {
+// win32-only: the blocker relies on Windows fs semantics — stat() of a path
+// through a plain file yields ENOENT there (so the confirm pass accepts the
+// op) but ENOTDIR on POSIX (where the op never reaches the apply phase).
+test('a mid-list apply failure reports the applied prefix instead of rejecting', { skip: process.platform !== 'win32' }, async (t) => {
   const root = await setup(t);
   // Op A (applied second — journal ops are processed in reverse): a restore of
   // a "deleted" file whose target path runs THROUGH a plain file, so the
