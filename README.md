@@ -4,12 +4,10 @@
 
 # Syncarr
 
-**Safe, scheduled file synchronization for Windows, macOS, and Linux**
+**Safe, scheduled file synchronization for Windows**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Windows](https://img.shields.io/badge/Windows-0078D4?style=flat&logo=windows)](https://github.com/MrBeanTheOne/syncarr)
-[![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple)](https://github.com/MrBeanTheOne/syncarr)
-[![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat&logo=linux&logoColor=black)](https://github.com/MrBeanTheOne/syncarr)
 
 </div>
 
@@ -17,7 +15,7 @@
 
 ## Overview
 
-Syncarr automates folder synchronization between your local machine and a NAS (Network Attached Storage) share. It combines the speed and reliability of platform-specific sync engines (robocopy on Windows, rsync on Unix) with intelligent scheduling, history tracking, and restore points to keep your data safe.
+Syncarr automates folder synchronization between your Windows machine and a NAS (Network Attached Storage) share. It combines the speed and reliability of robocopy with intelligent scheduling, history tracking, and restore points to keep your data safe.
 
 ---
 
@@ -39,9 +37,7 @@ Syncarr automates folder synchronization between your local machine and a NAS (N
 - **Multiple Sync Modes** — Choose between one-way copy, mirror (with deletions), or bidirectional two-way sync with conflict resolution
 - **Restore Points** — Automatic snapshots before each sync run; browse and restore previous versions easily
 - **Run History** — Complete audit trail of all sync operations with detailed logs and file-level changes
-- **Platform-Optimized Engines**
-  - Windows: robocopy for speed and reliability
-  - macOS/Linux: rsync with full feature support
+- **Robocopy-Powered** — Built on Windows' native robocopy for speed and reliability
 - **Background Scheduling** — Runs in the system tray; syncs continue even when the app window is closed
 - **Safe by Default** — Dry-run preview before any sync, detailed change reports, automatic crash recovery
 - **Flexible Exclude Patterns** — Glob-style patterns to skip files and folders (`.git`, `node_modules`, etc.)
@@ -99,10 +95,8 @@ npm run dev
 To build an installer:
 
 ```bash
-npm run pack:win    # Portable executable (Windows)
-npm run dist:win    # NSIS installer (Windows)
-npm run dist:mac    # DMG + ZIP (macOS)
-npm run dist:linux  # AppImage + DEB (Linux)
+npm run pack:win    # Portable executable
+npm run dist:win    # NSIS installer
 ```
 
 ---
@@ -150,13 +144,10 @@ Syncarr follows a three-layer Electron architecture:
 
 ### Key Components
 
-- **Sync Engines** — Pluggable robocopy (Windows) and rsync (Unix) backends with dry-run parsing
+- **Sync Engine** — Robocopy backend with dry-run parsing (a pluggable engine registry keeps the door open for others)
 - **Two-Way Sync** — Per-job baseline snapshots with append-only event logs for durability
 - **Scheduler** — Background scheduler runs in main process (not renderer), continues when minimized
 - **History** — Durable run journal and config store with automatic backup and crash recovery
-- **Platform Abstraction** — Unified interface for Windows, macOS, and Linux specifics
-
-For detailed architecture documentation, see [Architecture](docs/ARCHITECTURE.md) (if available).
 
 ---
 

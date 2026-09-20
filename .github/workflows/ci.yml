@@ -16,7 +16,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # Windows-only: Syncarr is a Windows-first app and the mac/linux
+        # targets are untested. Re-add ubuntu-latest / macos-latest here if
+        # those platforms ever become supported.
+        os: [windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
