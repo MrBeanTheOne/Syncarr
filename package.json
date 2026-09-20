@@ -1,0 +1,85 @@
+{
+  "name": "syncarr",
+  "version": "0.6.71",
+  "description": "Windows-first desktop sync app for safely pushing local folders to a NAS share.",
+  "main": "src/main.js",
+  "private": true,
+  "author": "Retile",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "test": "node --test",
+    "pack:win": "electron-builder --win portable",
+    "pack:mac": "electron-builder --mac --publish never",
+    "pack:linux": "electron-builder --linux --publish never",
+    "dist:win": "electron-builder --win nsis --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
+    "release:win": "electron-builder --win nsis --publish always"
+  },
+  "build": {
+    "appId": "ca.retile.syncarr",
+    "productName": "Syncarr",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "build/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "MrBeanTheOne",
+        "repo": "syncarr"
+      }
+    ],
+    "forceCodeSigning": false,
+    "win": {
+      "icon": "build/icon.ico",
+      "publisherName": "Retile",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "category": "Utility",
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}.${ext}",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "desktop": {
+        "Name": "Syncarr",
+        "Comment": "Background sync scheduler for local folders and NAS shares",
+        "Categories": "Utility;FileTools;",
+        "Terminal": "false"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}

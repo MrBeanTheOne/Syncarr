@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Syncarr activity</title>
+    <link rel="stylesheet" href="tray.css" />
+  </head>
+  <body>
+    <main class="tray-panel" aria-live="polite">
+      <header class="tray-header">
+        <div class="brand">
+          <img src="assets/syncarr-icon-dark-256.png" alt="" />
+          <div>
+            <strong>Syncarr</strong>
+            <span id="updatedAt">Activity overview</span>
+          </div>
+        </div>
+        <div class="status-pill" id="statusPill">
+          <span class="status-dot"></span>
+          <span id="statusLabel">Idle</span>
+        </div>
+      </header>
+
+      <section class="active-card hidden" id="activeCard">
+        <div class="section-kicker">Current task</div>
+        <div class="active-heading">
+          <div>
+            <strong id="activeName">Sync task</strong>
+            <span id="activeKind">Sync</span>
+          </div>
+          <span class="progress-value" id="progressValue">Working</span>
+        </div>
+        <div class="progress-track" id="progressTrack">
+          <svg class="progress-fill" id="progressFill" viewBox="0 0 100 5" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="trayFillGradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#5b8cff" />
+                <stop offset="1" stop-color="#7aa7ff" />
+              </linearGradient>
+            </defs>
+            <rect class="progress-fill-bar" id="progressFillBar" x="0" y="0" width="0" height="5" />
+          </svg>
+        </div>
+        <p class="active-message" id="activeMessage">Preparing task...</p>
+        <p class="active-file" id="activeFile"></p>
+        <div class="metrics" id="metrics">
+          <span><strong id="copiedMetric">0</strong> copied</span>
+          <span><strong id="skippedMetric">0</strong> skipped</span>
+          <span><strong id="failedMetric">0</strong> failed</span>
+        </div>
+      </section>
+
+      <section class="idle-card" id="idleCard">
+        <span class="idle-mark"></span>
+        <div>
+          <strong id="idleTitle">All caught up</strong>
+          <p id="idleMessage">No task is running.</p>
+        </div>
+      </section>
+
+      <section class="conflict-warning hidden" id="conflictWarning">
+        <div class="section-kicker">Needs attention</div>
+        <strong id="conflictWarningTitle">Scheduled task blocked by conflicts</strong>
+        <p id="conflictWarningMessage">Open Syncarr and review the conflicting files.</p>
+      </section>
+
+      <section class="queue-section">
+        <div class="section-title">
+          <span>Pending</span>
+          <span class="queue-count" id="queueCount">0</span>
+        </div>
+        <div class="queue-list" id="queueList"></div>
+        <p class="empty-queue" id="emptyQueue">No scheduled tasks are pending.</p>
+      </section>
+
+      <footer class="tray-actions">
+        <button type="button" class="secondary hidden" id="cancelButton" data-command="cancel">Cancel task</button>
+        <button type="button" class="secondary pause-button" id="pauseScheduleButton" data-command="toggle-scheduler-pause">Pause</button>
+        <button type="button" class="secondary" id="runDueButton" data-command="run-next-scheduled">Run next</button>
+        <button type="button" class="primary" data-command="open">Open Syncarr</button>
+      </footer>
+    </main>
+    <script src="tray.js"></script>
+  </body>
+</html>

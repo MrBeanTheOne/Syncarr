@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output (electron-builder writes here)
+dist/
+
+# Per-dev smoke test fixtures (generated under work/)
+work/
+
+# Local release archives — keep these out of git, push them via the GitHub
+# release workflow instead
+*.zip
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor scratch
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local env / secrets (defensive — there are no .env files in this repo today)
+.env
+.env.*
+!.env.example
+
+# Test scratch (kept out of git; the work/ tree holds fixtures used by the app)
+coverage/
+.nyc_output/
+
+# TermDeck agent brain (local memory)
+.termdeck/
+
+# Claude Code local config and context
+.claude/
+
+# Documentation (kept locally but not in repo)
+docs/

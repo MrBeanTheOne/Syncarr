@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Syncarr</title>
+    <link rel="icon" href="assets/favicon.ico" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self' data:; connect-src 'self' https://api.telegram.org;" />
+    <!-- CSP style-src no longer needs 'unsafe-inline': the run and tray
+         progress bars use SVG <rect> with width driven by setAttribute(),
+         which is an SVG presentation attribute write (not an inline style)
+         and is allowed by style-src 'self'. Static inline `style="..."` HTML
+         attributes are also absent — everything goes through classes. -->
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="assets/syncarr-icon-dark.svg" alt="" />
+          </div>
+          <div>
+            <h1>Syncarr</h1>
+            <p>Local &rarr; NAS sync</p>
+          </div>
+        </div>
+
+        <section class="side-section">
+          <div class="side-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h6l2-2h6a2 2 0 0 1 2 2v3"/><path d="M2 13h20"/><path d="M5 13v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+            <span>Jobs</span>
+          </div>
+          <div class="job-list" id="jobList"></div>
+          <div class="job-actions">
+            <button class="secondary small" id="newJobBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              New
+            </button>
+            <button class="secondary small" id="duplicateJobBtn" type="button" title="Duplicate job">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+              Copy
+            </button>
+            <button class="danger small" id="deleteJobBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              Delete
+            </button>
+          </div>
+        </section>
+
+        <div class="sidebar-spacer"></div>
+
+        <div class="sidebar-footer">
+          <span>Windows-first sync</span>
+          <span class="version-badge">v0.6.71</span>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div class="topbar-title">
+            <p class="eyebrow">
+              <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3L3 16"/><path d="M3 21v-5h5"/></svg>
+              <span id="pageEyebrowText">Local &rarr; NAS workspace</span>
+            </p>
+            <h2 id="pageTitle">Sync</h2>
+          </div>
+          <div class="topbar-actions">
+            <div class="view-tabs" role="tablist" aria-label="Views">
+              <button class="tab active" data-view-tab="sync" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3L3 16M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3L21 8"/></svg>
+                Sync
+              </button>
+              <button class="tab" data-view-tab="history" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                File history
+              </button>
+              <button class="tab" data-view-tab="settings" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15 1.65 1.65 0 0 0 3.09 14H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.31.22.65.22 1H21a2 2 0 0 1 0 4h-1.38c0 .35-.08.69-.22 1z"/></svg>
+                Settings
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div id="settingsView" class="hidden">
+          <section class="settings-stack">
+            <section class="panel collapsible-panel" data-collapse-section="settings-general">
+              <div class="collapsible-titlebar">
+                <button class="collapsible-head" data-collapse-toggle="settings-general" type="button" aria-expanded="true">
+                  <span class="collapsible-title">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    <span><strong>General settings</strong><small>Application-wide behavior, background operation, and updates.</small></span>
+                  </span>
+                  <span class="collapse-icon">▾</span>
+                </button>
+              </div>
+              <div class="collapsible-body" data-collapse-body="settings-general">
+                <div class="field-group">
+                  <label class="switch-row">
+                    <input id="bgCloseToTray" type="checkbox" checked />
+                    <span>Keep running in the tray when the window is closed<small>The scheduler keeps running in the background. Quit fully from the tray icon menu.</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="bgStartAtLogin" type="checkbox" />
+                    <span>Start Syncarr when I sign in to Windows<small>Launches automatically so unattended schedules run after a reboot.</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="bgStartMinimized" type="checkbox" />
+                    <span>Start hidden in the tray at login<small>Boots straight to the tray with no window. Requires start at sign-in.</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="bgAutoCheckUpdates" type="checkbox" checked />
+                    <span>Automatically check for updates<small>Checks shortly after launch and installs on quit when a new version is available.</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="bgSchedulerPaused" type="checkbox" />
+                    <span>Pause automatic scheduled tasks<small>Due tasks wait without running until schedules are resumed. Manual runs are still available.</small></span>
+                  </label>
+                  <div class="switch-row action-row">
+                    <div class="setting-action-controls">
+                      <button class="secondary small" id="checkUpdatesBtn" type="button">Check for updates</button>
+                      <button class="primary small" id="installUpdateBtn" type="button" hidden>Restart &amp; install</button>
+                    </div>
+                    <span><span id="updateStatusText">Up to date.</span><small id="updateStatusNote">Auto-update runs in packaged builds.</small></span>
+                  </div>
+                  <div class="switch-row action-row">
+                    <div class="setting-action-controls">
+                      <button class="secondary small" id="resetManualRunWarningsBtn" type="button">Reset remembered warnings</button>
+                    </div>
+                    <span>Remembered confirmations<small>Reset mode-specific manual-sync confirmations so Syncarr asks again before applying a plan.</small></span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel collapsible-panel telegram-settings-panel" data-collapse-section="settings-telegram">
+              <button class="collapsible-head" data-collapse-toggle="settings-telegram" type="button" aria-expanded="true">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+                  <span><strong>Notification settings</strong><small>Desktop toasts and Telegram alerts for compare and sync results.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="settings-telegram">
+                <div class="field-group">
+                  <label class="switch-row">
+                    <input id="bgDesktopNotifications" type="checkbox" checked />
+                    <span>Show desktop notification toasts<small>Windows toast when a compare or sync finishes (failures always, successes on sync only).</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="bgNotifyBeforeScheduledRun" type="checkbox" checked />
+                    <span>Warn before a scheduled task starts<small>Shows one desktop toast five minutes before the run when you are actively using this computer.</small></span>
+                  </label>
+                </div>
+
+                <div class="settings-subhead">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 4.5 2.5 12l7 2 2 7 10-16.5Z"/><path d="m9.5 14 4-4"/></svg>
+                  <span>Telegram</span>
+                </div>
+
+                <div class="field-group">
+                  <label class="switch-row">
+                    <input id="telegramEnabled" type="checkbox" />
+                    <span>Enable Telegram integration<small>Notifications are only sent for jobs with notifications enabled</small></span>
+                  </label>
+                </div>
+
+                <div class="telegram-settings-grid telegram-dependent-settings">
+                  <label>
+                    Bot token
+                    <input id="telegramBotToken" type="password" autocomplete="off" placeholder="123456789:ABC..." />
+                  </label>
+                  <label>
+                    Chat ID
+                    <input id="telegramChatId" type="text" autocomplete="off" placeholder="123456789 or -100..." />
+                  </label>
+                </div>
+
+                <div class="field-group telegram-event-options telegram-dependent-settings">
+                  <label class="switch-row">
+                    <input id="telegramNotifySuccess" type="checkbox" checked />
+                    <span>Notify on successful sync<small>Sent after an update sync completes successfully</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="telegramNotifyFailure" type="checkbox" checked />
+                    <span>Notify on failed runs<small>Sent when a compare or sync fails</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="telegramNotifyCompare" type="checkbox" />
+                    <span>Notify on compare results<small>Optional. Leave off to avoid extra scheduled compare messages</small></span>
+                  </label>
+                </div>
+
+                <div class="telegram-card-actions telegram-dependent-settings">
+                  <button class="secondary small" id="testTelegramBtn" type="button">Send test</button>
+                </div>
+
+                <div class="result-card telegram-dependent-settings" id="telegramStatus">
+                  <strong>Telegram status</strong>
+                  <span>Not configured.</span>
+                  <small>Paste a bot token and chat ID, save, then send a test.</small>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel collapsible-panel collapsed" data-collapse-section="settings-about">
+              <button class="collapsible-head" data-collapse-toggle="settings-about" type="button" aria-expanded="false">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                  <span><strong>About Syncarr</strong><small>Build information and current app role.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="settings-about">
+                <div class="settings-info-grid">
+                  <div class="result-card">
+                    <strong>Version</strong>
+                    <span id="appVersionText">v0.6.71</span>
+                    <small>Windows-first desktop app for safe folder sync with mode-aware job settings.</small>
+                  </div>
+                  <div class="result-card">
+                    <strong>Scope</strong>
+                    <span>Local source folders to one or more backup destinations.</span>
+                    <small>Job-specific controls stay on the Sync page.</small>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <div id="syncView">
+          <section class="panel sync-command-bar">
+            <div class="sync-command-copy">
+              <h3>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Sync run
+              </h3>
+              <p class="muted">Compare first. The file preview stays available below until you run the sync.</p>
+              <p class="run-hint idle" id="runHint">Never scanned</p>
+            </div>
+            <div class="sync-command-actions" aria-label="Sync actions">
+              <button id="compareBtn" class="secondary run-action compact-run-action" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7"/></svg>
+                <span><strong>Compare</strong><small>Generate plan</small></span>
+              </button>
+              <button id="syncBtn" class="primary run-action compact-run-action" type="button" disabled>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3L3 16M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3L21 8M21 3v5h-5M3 21v-5h5"/></svg>
+                <span><strong>Run update sync</strong><small>Apply changes</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel recovery-runs-panel hidden" id="recoveryRunsPanel">
+            <div class="section-header recovery-runs-header">
+              <div>
+                <h3>Interrupted runs</h3>
+                <p class="muted">Resume from a fresh scan, or roll back only when live files still match the interrupted operation.</p>
+              </div>
+              <button class="secondary small" id="refreshRecoveryRunsBtn" type="button">Refresh</button>
+            </div>
+            <div id="recoveryConfigStatus" class="recovery-config-status hidden" role="status"></div>
+            <div id="recoveryRunRows" class="recovery-run-rows">
+              <div class="history-empty">Checking for interrupted runs...</div>
+            </div>
+          </section>
+
+          <section class="sync-settings-stack">
+            <section class="panel collapsible-panel" data-collapse-section="job-settings">
+              <button class="collapsible-head" data-collapse-toggle="job-settings" type="button" aria-expanded="true">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  <span><strong>Job settings</strong><small>Name, mode, enable state, and file watcher for this sync job.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="job-settings">
+                <label>
+                  Job name
+                  <input id="jobName" type="text" placeholder="Music to NAS" />
+                </label>
+
+                <label class="stack-top">
+                  Sync mode
+                  <select id="syncMode">
+                    <option value="oneWay">One-way backup</option>
+                    <option value="mirror">Mirror source to destination</option>
+                    <option value="twoWay">Two-way sync planning</option>
+                  </select>
+                </label>
+                <div class="sync-mode-card" id="syncModeDescription">
+                  <strong>One-way backup</strong>
+                  <span>Copy source changes to destination. Destination-only files are kept.</span>
+                  <small>Safe default. File history protects destination files before overwrites.</small>
+                </div>
+
+                <div class="stack-top hidden" id="twoWayConflictPolicyField">
+                  <label>
+                    When both sides conflict
+                    <select id="twoWayConflictPolicy">
+                      <option value="newer">Newest file wins</option>
+                      <option value="source">Source takes precedence</option>
+                      <option value="dest">Destination takes precedence</option>
+                      <option value="keepBoth">Keep both versions</option>
+                    </select>
+                  </label>
+                  <small class="field-note" id="twoWayConflictPolicyDescription">The most recently modified file wins. Timestamp ties keep both versions.</small>
+                </div>
+
+                <div class="field-group stack-top">
+                  <label class="switch-row">
+                    <input id="jobEnabled" type="checkbox" checked />
+                    <span>Enable job<small>Disabled jobs cannot run manually or on schedule</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="jobNotificationsEnabled" type="checkbox" />
+                    <span>Enable notifications for this job<small>Uses the Notification settings on the Settings page</small></span>
+                  </label>
+                </div>
+
+                <div class="result-card warning stack-top hidden" id="jobConflictWarning">
+                  <strong>Scheduled task blocked by conflicts</strong>
+                  <span>This job did not run because its preview found unresolved conflicts.</span>
+                  <small>Run Compare and review the conflicting files before the next scheduled run.</small>
+                </div>
+
+                <div class="watch-settings">
+                  <hr class="divider" />
+
+                  <div class="field-group">
+                    <label class="switch-row">
+                      <input id="watchEnabled" type="checkbox" />
+                      <span>Watch source folders<small>Coalesces file bursts and runs after changes settle</small></span>
+                    </label>
+                  </div>
+
+                  <div id="watchSettingsFields">
+                    <div class="schedule-grid">
+                      <label>
+                        Watched action
+                        <select id="watchMode">
+                          <option value="compare">Compare only</option>
+                          <option value="sync">Compare, then sync if safe</option>
+                        </select>
+                      </label>
+                      <label>
+                        Quiet time (seconds)
+                        <input id="watchSettleSeconds" type="number" min="2" max="300" step="1" value="10" />
+                      </label>
+                    </div>
+                    <div class="schedule-grid stack-top-sm">
+                      <label>
+                        Maximum wait (seconds)
+                        <input id="watchMaxWaitSeconds" type="number" min="2" max="1800" step="1" value="120" />
+                      </label>
+                    </div>
+                    <small class="field-note">Excluded files are ignored. Pending changes wait while another compare or sync is active.</small>
+                  </div>
+
+                  <div class="result-card stack-top-sm" id="watchStatus">
+                    <strong>Smart watcher</strong>
+                    <span>Disabled.</span>
+                    <small>Enable watching to react to source changes.</small>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel collapsible-panel" data-collapse-section="connection">
+              <button class="collapsible-head" data-collapse-toggle="connection" type="button" aria-expanded="true">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h6l2-2h6a2 2 0 0 1 2 2v3"/><path d="M2 13h20"/><path d="M5 13v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+                  <span><strong>Connection</strong><small>Sources and destination folders.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="connection">
+                <div class="source-field">
+                  <div class="source-field-head">
+                    <span>Source folders</span>
+                    <small>Each line is copied as a source root for this job.</small>
+                  </div>
+                  <div id="sourceList" class="source-list"></div>
+                  <button id="addSourceBtn" class="secondary source-add-btn" type="button">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Add another source folder
+                  </button>
+                  <textarea id="sourcePath" class="hidden" aria-hidden="true" tabindex="-1"></textarea>
+                  <small class="field-note">With multiple sources, Syncarr keeps each source in its own top-level target folder.</small>
+                </div>
+
+                <div class="destination-field">
+                  <div class="source-field-head">
+                    <span>Destination folders</span>
+                    <small>Required destinations must be connected. Optional destinations are skipped when unavailable.</small>
+                  </div>
+                  <div id="targetList" class="destination-list"></div>
+                  <button id="addDestinationBtn" class="secondary source-add-btn" type="button">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Add another destination
+                  </button>
+                  <input id="targetPath" class="hidden" type="text" aria-hidden="true" tabindex="-1" />
+                  <small class="field-note">Use required for the NAS target. Use optional for USB or secondary backup drives.</small>
+                </div>
+
+                <div class="result-card" id="targetTestResult">
+                  <strong>Destination test</strong>
+                  <span>Not tested yet.</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel collapsible-panel" data-collapse-section="options">
+              <button class="collapsible-head" data-collapse-toggle="options" type="button" aria-expanded="true">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <span><strong>Sync options</strong><small>Overwrite policy and free-space guard.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="options">
+                <div class="field-group">
+                  <label class="switch-row">
+                    <input id="skipOlderSource" type="checkbox" checked />
+                    <span>Do not overwrite newer NAS files<small>Skip a local file when the NAS copy is newer</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="copySubfolders" type="checkbox" checked />
+                    <span>Include subfolders<small>Recurse through nested folders</small></span>
+                  </label>
+                  <label class="switch-row">
+                    <input id="freeSpaceCheckEnabled" type="checkbox" checked />
+                    <span>Check free space before writing<small>Stop early if the target is low on space</small></span>
+                  </label>
+                </div>
+
+                <label class="stack-top">
+                  Minimum free space after writes
+                  <div class="number-row">
+                    <input id="minimumFreeGb" type="number" min="0" step="0.1" value="1" />
+                    <span>GB</span>
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            <section class="panel collapsible-panel collapsed" data-collapse-section="file-history">
+              <button class="collapsible-head" data-collapse-toggle="file-history" type="button" aria-expanded="false">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg>
+                  <span><strong>File history</strong><small>Per-job archive and retention rules.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="file-history">
+                <div class="field-group">
+                  <label class="switch-row">
+                    <input id="historyEnabled" type="checkbox" checked />
+                    <span>Enable file history for this job<small>Before overwriting, archive the current target file first</small></span>
+                  </label>
+                </div>
+
+                <div id="fileHistoryOptions" class="history-options-wrap">
+                  <hr class="divider" />
+
+                  <div class="field-group">
+                    <label class="switch-row">
+                      <input id="restorePointsEnabled" type="checkbox" />
+                      <span>Create restore point after successful sync<small>Stores a full destination manifest for the run without duplicating unchanged files</small></span>
+                    </label>
+                  </div>
+
+                  <div class="field-group">
+                    <label class="switch-row">
+                      <input id="retentionEnabled" type="checkbox" />
+                      <span>Enable retention cleanup<small>Allow Syncarr to prune old archived versions</small></span>
+                    </label>
+                  </div>
+
+                  <div id="retentionOptions" class="retention-options-wrap">
+                    <div class="number-grid stack-top">
+                      <label>
+                        Versions per file
+                        <input id="retentionMaxVersions" type="number" min="1" step="1" value="10" />
+                      </label>
+                      <label>
+                        Days to keep
+                        <input id="retentionMaxAgeDays" type="number" min="1" step="1" value="365" />
+                      </label>
+                    </div>
+
+                    <div class="field-group stack-top-sm">
+                      <label class="switch-row">
+                        <input id="retentionKeepLatest" type="checkbox" checked />
+                        <span>Always keep the latest archived version<small>Prevents cleanup from deleting the only fallback copy for a file</small></span>
+                      </label>
+                      <label class="switch-row">
+                        <input id="retentionPruneEmptyFolders" type="checkbox" checked />
+                        <span>Remove empty history folders after cleanup<small>Keeps .syncarr-history tidy after old versions are deleted</small></span>
+                      </label>
+                      <label class="switch-row">
+                        <input id="retentionPruneAfterSync" type="checkbox" />
+                        <span>Run cleanup after successful sync<small>Automatically prune once a sync completes</small></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel collapsible-panel collapsed schedule-panel" data-collapse-section="schedule">
+              <button class="collapsible-head" data-collapse-toggle="schedule" type="button" aria-expanded="false">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                  <span><strong>Schedule</strong><small>Run this job automatically at configured times.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+              <div class="collapsible-body" data-collapse-body="schedule">
+                <div class="field-group">
+                  <label class="switch-row">
+                    <input id="scheduleEnabled" type="checkbox" />
+                    <span>Enable scheduled run<small>Runs while Syncarr is open or minimized</small></span>
+                  </label>
+                </div>
+
+                <div class="schedule-grid">
+                  <label>
+                    Scheduled action
+                    <select id="scheduleMode">
+                      <option value="compare">Compare only</option>
+                      <option value="sync">Compare, then sync if safe</option>
+                    </select>
+                  </label>
+                  <label>
+                    Frequency
+                    <select id="scheduleFrequency">
+                      <option value="interval">Every X minutes/hours</option>
+                      <option value="daily">Daily at a time</option>
+                      <option value="weekly">Weekly on selected days</option>
+                      <option value="startup">When Syncarr starts</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="schedule-grid schedule-interval-fields" id="scheduleIntervalFields">
+                  <label>
+                    Every
+                    <input id="scheduleIntervalValue" type="number" min="1" step="1" value="1" />
+                  </label>
+                  <label>
+                    Unit
+                    <select id="scheduleIntervalUnit">
+                      <option value="minutes">minutes</option>
+                      <option value="hours" selected>hours</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="schedule-grid schedule-time-fields" id="scheduleTimeFields">
+                  <label>
+                    Time
+                    <input id="scheduleTime" type="time" value="02:00" />
+                  </label>
+                </div>
+
+                <div class="schedule-weekdays" id="scheduleWeekdays" aria-label="Weekly schedule days">
+                  <label><input type="checkbox" data-weekday="MO" /> Mon</label>
+                  <label><input type="checkbox" data-weekday="TU" /> Tue</label>
+                  <label><input type="checkbox" data-weekday="WE" /> Wed</label>
+                  <label><input type="checkbox" data-weekday="TH" /> Thu</label>
+                  <label><input type="checkbox" data-weekday="FR" /> Fri</label>
+                  <label><input type="checkbox" data-weekday="SA" /> Sat</label>
+                  <label><input type="checkbox" data-weekday="SU" /> Sun</label>
+                </div>
+
+                <div class="result-card" id="scheduleStatus">
+                  <strong>Schedule</strong>
+                  <span>Disabled.</span>
+                  <small>Enable scheduling to calculate the next run.</small>
+                </div>
+
+              </div>
+            </section>
+          </section>
+
+          <section class="panel collapsible-panel preview-panel" id="filePreviewPanel" data-collapse-section="preview">
+            <div class="collapsible-titlebar">
+              <button class="collapsible-head" data-collapse-toggle="preview" type="button" aria-expanded="true">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
+                  <span><strong>File preview</strong><small>Generated by the last compare for this job.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+            </div>
+            <div class="collapsible-body" data-collapse-body="preview">
+              <div class="preview-toolbar">
+                <label>
+                  Search
+                  <input id="previewSearch" type="text" placeholder="Search copied, changed, destination-only, or issue files" />
+                </label>
+              </div>
+
+              <div id="previewOverview" class="preview-overview hidden"></div>
+              <nav class="history-breadcrumb preview-breadcrumb" id="previewBreadcrumb" aria-label="Preview folders"></nav>
+              <div id="previewRows" class="history-browser preview-browser two-sided-preview">
+                <div class="preview-empty">No preview yet.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel collapsible-panel recent-log-panel" data-collapse-section="runs">
+            <div class="collapsible-titlebar">
+              <button class="collapsible-head" data-collapse-toggle="runs" type="button" aria-expanded="true">
+                <span class="collapsible-title">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                  <span><strong>Recent runs & logs</strong><small>Click a run to display its saved log.</small></span>
+                </span>
+                <span class="collapse-icon">▾</span>
+              </button>
+            </div>
+            <div class="collapsible-body" data-collapse-body="runs">
+              <div id="recentRuns" class="recent-runs run-browser">No previous runs.</div>
+              <div class="hidden" aria-hidden="true">
+                <strong id="logTitle">Run log</strong>
+                <small id="logSubtitle">Click a recent run to expand its saved log.</small>
+                <pre id="logOutput" class="log-output">Ready.</pre>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="historyView" class="hidden">
+          <section class="panel view-overview-panel history-overview-panel">
+            <div class="section-header">
+              <div>
+                <h3>
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                  File history
+                </h3>
+                <p class="muted">Showing archive versions and restore-point manifests for <strong id="historyJobName">current job</strong>.</p>
+              </div>
+            </div>
+
+            <div class="summary-grid history-summary-grid">
+              <div class="metric">
+                <span>Files with history</span>
+                <strong id="historyFileCount">0</strong>
+              </div>
+              <div class="metric">
+                <span>Versions</span>
+                <strong id="historyVersionCount">0</strong>
+              </div>
+              <div class="metric">
+                <span>Manifests</span>
+                <strong id="historyManifestCount">0</strong>
+              </div>
+              <div class="metric">
+                <span>Manifest errors</span>
+                <strong id="historyErrorCount">0</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="history-workspace">
+            <div class="history-main-column">
+              <section class="panel collapsible-panel history-section-panel" data-collapse-section="history-archives">
+                <div class="collapsible-titlebar">
+                <button class="collapsible-head" data-collapse-toggle="history-archives" type="button" aria-expanded="true">
+                  <span class="collapsible-title">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
+                    <span><strong>Archived files</strong><small>Browse archived file versions and select one for restore.</small></span>
+                  </span>
+                  <span class="collapse-icon">▾</span>
+                </button>
+                </div>
+                <div class="collapsible-body" data-collapse-body="history-archives">
+                  <div class="section-body-toolbar">
+                    <p class="section-lead">Browse folders to a file, then choose a version to inspect or restore.</p>
+                    <button class="secondary small" id="refreshHistoryBtn" type="button">Refresh</button>
+                  </div>
+
+                  <label>
+                    Search
+                    <input id="historySearch" type="text" placeholder="Search files with history" />
+                  </label>
+
+                  <nav class="history-breadcrumb" id="historyBreadcrumb" aria-label="File history folders"></nav>
+                  <div id="historyRows" class="history-browser hidden"></div>
+
+                  <div class="result-card section-status-card" id="historyStatus" aria-live="polite">
+                    <strong>File history</strong>
+                    <span>Not loaded yet.</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="panel collapsible-panel history-section-panel" data-collapse-section="history-restore-points">
+                <div class="collapsible-titlebar">
+                <button class="collapsible-head" data-collapse-toggle="history-restore-points" type="button" aria-expanded="true">
+                  <span class="collapsible-title">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+                    <span><strong>Restore points</strong><small>Browse successful sync snapshots and restore verified content to another folder.</small></span>
+                  </span>
+                  <span class="collapse-icon">▾</span>
+                </button>
+                </div>
+                <div class="collapsible-body" data-collapse-body="history-restore-points">
+                  <div class="section-body-toolbar">
+                    <p class="section-lead">Review snapshots created after successful syncs and restore a selected scope safely.</p>
+                    <button class="secondary small" id="refreshRestorePointsBtn" type="button">Refresh</button>
+                  </div>
+
+                  <div class="restore-point-list" id="restorePointRows"></div>
+
+                  <div class="result-card section-status-card" id="restorePointStatus" aria-live="polite">
+                    <strong>Restore points</strong>
+                    <span>Not loaded yet.</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="panel history-inspector-panel recovery-inspector" id="historyInspectorPanel">
+              <div class="recovery-inspector-head">
+                <div class="recovery-inspector-heading">
+                  <span class="recovery-inspector-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
+                  </span>
+                  <span>
+                    <small>Recovery inspector</small>
+                    <h3 id="historyInspectorTitle">Archived file</h3>
+                  </span>
+                </div>
+                <span class="inspector-state-badge neutral" id="historyInspectorState">Waiting</span>
+              </div>
+
+              <div class="inspector-block" id="historyFileInspectorBlock">
+                <div class="inspector-slot" id="historySelected">
+                  <div class="result-card inspector-selection-card neutral">
+                    <small class="inspector-eyebrow">Archived file</small>
+                    <strong>No file version selected</strong>
+                    <span>Refresh file history and choose a version to inspect or restore.</span>
+                  </div>
+                </div>
+
+                <div class="history-restore-controls inspector-action-note neutral" id="historyRestoreControls">
+                  <div class="inspector-action-heading">
+                    <small>Restore action</small>
+                    <strong>Choose destination</strong>
+                    <span>Current files are archived before Syncarr overwrites them.</span>
+                  </div>
+                  <div class="segmented" role="group" aria-label="Restore destination">
+                    <button class="active" data-restore-mode="original" type="button">Original target</button>
+                    <button data-restore-mode="backup" type="button">Backup target</button>
+                    <button data-restore-mode="folder" type="button">Other target</button>
+                  </div>
+
+                  <label id="restoreFolderField" class="hidden">
+                    Other target folder
+                    <div class="input-row">
+                      <input id="restoreFolderPath" type="text" placeholder="Syncarr Restores" />
+                      <button id="pickRestoreFolderBtn" class="secondary" type="button">Browse</button>
+                    </div>
+                  </label>
+
+                  <div class="button-stack">
+                    <button id="restoreSelectedBtn" class="primary" disabled>
+                      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
+                      Restore selected version
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="inspector-block hidden" id="restorePointInspectorBlock">
+                <div class="inspector-slot" id="restorePointSelected">
+                  <div class="result-card inspector-selection-card neutral">
+                    <small class="inspector-eyebrow">Restore point</small>
+                    <strong>No restore point selected</strong>
+                    <span>Refresh restore points and select one to inspect its verified contents.</span>
+                  </div>
+                </div>
+
+                <div class="history-restore-controls restore-point-actions" id="restorePointActions"></div>
+              </div>
+
+              <div class="inspector-result-shell">
+                <div class="inspector-section-label">
+                  <span>Last operation</span>
+                  <small>Session result</small>
+                </div>
+                <div class="result-card inspector-result-card" id="historyResult">
+                  <strong>Restore result</strong>
+                  <span>No restore run yet.</span>
+                </div>
+              </div>
+            </aside>
+          </section>
+        </div>
+      </main>
+
+      <div class="run-overlay hidden" id="runOverlay">
+        <div class="run-scrim" id="runScrim"></div>
+        <section class="run-modal" id="runModal" role="dialog" aria-modal="true" aria-label="Sync run">
+          <header class="run-modal-head">
+            <div class="run-modal-heading">
+              <span class="pill hidden" id="runState">Idle</span>
+              <h3 id="runJobLabel">Sync job</h3>
+            </div>
+            <div class="run-modal-tools">
+              <button class="ghost small" id="minimizeRunBtn" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
+                Minimize
+              </button>
+              <button class="danger small" id="cancelBtn" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                Cancel
+              </button>
+              <button class="secondary small hidden" id="closeRunBtn" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                Close
+              </button>
+            </div>
+          </header>
+
+          <div class="run-progress" id="runProgress">
+            <div class="run-progress-meta">
+              <span class="run-pct" id="runPct">0%</span>
+              <span class="run-eta" id="runEta">Estimating time remaining&hellip;</span>
+            </div>
+            <div class="progress-track">
+              <svg class="progress-fill" id="runFill" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="runFillGradientDefault" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#5b8cff" />
+                    <stop offset="1" stop-color="#7aa7ff" />
+                  </linearGradient>
+                  <linearGradient id="runFillGradientSuccess" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#16a571" />
+                    <stop offset="1" stop-color="#34d399" />
+                  </linearGradient>
+                  <linearGradient id="runFillGradientWarning" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#d89a10" />
+                    <stop offset="1" stop-color="#fbbf24" />
+                  </linearGradient>
+                  <linearGradient id="runFillGradientError" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#fb7185" />
+                    <stop offset="1" stop-color="#f9a8b4" />
+                  </linearGradient>
+                </defs>
+                <rect class="progress-fill-bar" id="runFillBar" x="0" y="0" width="0" height="10" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="run-current-action" id="runCurrentAction" aria-live="polite">
+            <span>Current action</span>
+            <strong id="runFile">Preparing&hellip;</strong>
+          </div>
+
+          <section class="compare-overlay-panel hidden" id="compareOverlayPanel" aria-label="Compare preview map">
+            <div class="compare-map">
+              <div class="compare-lane source">
+                <span>Source side</span>
+                <strong id="compareSourceStatus">Scanning source folders</strong>
+                <small id="compareSourceSub">Waiting for file inventory...</small>
+                <dl class="compare-lane-details" id="compareSourceDetails"></dl>
+              </div>
+              <div class="compare-flow" aria-hidden="true">
+                <span></span>
+                <b>compare</b>
+                <span></span>
+              </div>
+              <div class="compare-lane destination">
+                <span>Destination side</span>
+                <strong id="compareDestinationStatus">Scanning destinations</strong>
+                <small id="compareDestinationSub">Checking changed, extra, and blocked files...</small>
+                <dl class="compare-lane-details" id="compareDestinationDetails"></dl>
+              </div>
+            </div>
+          </section>
+
+          <div class="summary-grid run-metrics hidden" id="runMetrics">
+            <div class="metric">
+              <span>Files copied</span>
+              <strong id="metricCopied">-</strong>
+            </div>
+            <div class="metric">
+              <span>Files archived</span>
+              <strong id="metricHistory">-</strong>
+            </div>
+            <div class="metric">
+              <span id="metricDeletedLabel">Files deleted</span>
+              <strong id="metricDeleted">-</strong>
+            </div>
+            <div class="metric">
+              <span>Files skipped</span>
+              <strong id="metricSkipped">-</strong>
+            </div>
+            <div class="metric">
+              <span>Failed</span>
+              <strong id="metricFailed">-</strong>
+            </div>
+            <div class="metric">
+              <span>Bytes copied</span>
+              <strong id="metricBytes">-</strong>
+            </div>
+          </div>
+          <div class="run-resume hidden" id="runResume"></div>
+        </section>
+      </div>
+
+      <div class="manual-run-confirm-overlay hidden" id="manualRunConfirmOverlay" role="presentation">
+        <div class="manual-run-confirm-scrim"></div>
+        <section class="manual-run-confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm manual sync run">
+          <header class="manual-run-confirm-head">
+            <span class="pill warning">Manual sync warning</span>
+            <h3 id="manualRunConfirmTitle">Apply last Compare plan?</h3>
+            <p id="manualRunConfirmText">Warning: you are about to apply the last Compare plan ran on the time and date below. Confirm before Syncarr changes destination files.</p>
+          </header>
+
+          <div class="manual-run-confirm-context">
+            <div>
+              <span>Job</span>
+              <strong id="manualRunConfirmJob">Sync job</strong>
+            </div>
+            <div>
+              <span>Mode</span>
+              <strong id="manualRunConfirmMode">One-way backup</strong>
+            </div>
+            <div>
+              <span>Last Compare plan</span>
+              <strong id="manualRunConfirmDate">-</strong>
+              <small id="manualRunConfirmAge">-</small>
+            </div>
+          </div>
+
+          <div class="manual-run-confirm-summary" id="manualRunConfirmSummary" aria-label="Compare plan summary">
+            Review the action summary before applying the saved Compare plan.
+          </div>
+
+          <label class="switch-row manual-run-remember-row">
+            <input id="manualRunConfirmRemember" type="checkbox" />
+            <span><span data-manual-run-remember-label>Remember my choice for this mode</span><small>This only applies to the current sync mode, not all modes.</small></span>
+          </label>
+
+          <div class="manual-run-confirm-actions">
+            <button class="secondary" id="manualRunConfirmCancel" type="button">Cancel</button>
+            <button class="primary danger-primary" id="manualRunConfirmApply" type="button">Apply compare plan</button>
+          </div>
+        </section>
+      </div>
+
+      <button class="run-mini hidden" id="runMini" type="button" aria-label="Restore run window">
+        <span class="run-mini-spin" id="runMiniSpin"></span>
+        <span class="run-mini-body">
+          <strong id="runMiniText">Sync running</strong>
+          <small id="runMiniSub">0%</small>
+        </span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      </button>
+
+      <div class="toast-stack" id="toastStack" aria-live="polite" aria-relevant="additions"></div>
+
+      <div class="save-bar" id="saveBar" role="status" aria-live="polite">
+        <div class="save-bar-inner">
+          <span class="save-bar-msg">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+            Unsaved changes
+          </span>
+          <div class="save-bar-actions">
+            <button class="ghost" id="discardJobBtn" type="button">Discard</button>
+            <button class="primary" id="saveJobBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer-utils.js"></script>
+    <script src="preview-format.js"></script>
+    <script src="preview-model.js"></script>
+    <script src="preview-actionable-utils.js"></script>
+    <script src="compare-fingerprint-utils.js"></script>
+    <script src="run-progress-utils.js"></script>
+    <script src="compare-labels-utils.js"></script>
+    <script src="run-log-format-utils.js"></script>
+    <script src="summary-metrics.js"></script>
+    <script src="run-history-utils.js"></script>
+    <script src="file-browser-components.js"></script>
+    <script src="restore-point-utils.js"></script>
+    <script src="restore-point-details-utils.js"></script>
+    <script src="restore-point-browser-utils.js"></script>
+    <script src="restore-point-plan-utils.js"></script>
+    <script src="history-inspector-utils.js"></script>
+    <script src="telegram-utils.js"></script>
+    <script src="background-settings.js"></script>
+    <script src="compare-status-utils.js"></script>
+    <script src="dialog.js"></script>
+    <script src="toasts.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

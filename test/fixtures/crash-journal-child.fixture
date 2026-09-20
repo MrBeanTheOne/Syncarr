@@ -1,0 +1,44 @@
+const fs = require('fs/promises');
+const path = require('path');
+const { createRunJournalStore } = require('../../src/main/run-journal');
+
+async function metadata(filePath) {
+  const stats = await fs.stat(filePath);
+  return { size: stats.size, mtimeMs: stats.mtimeMs };
+}
+
+async function main() {
+  const [basePath, targetPath, archivePath, sourcePath] = process.argv.slice(2);
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.mkdir(path.dirname(archivePath), { recursive: true });
+  await fs.mkdir(path.dirname(sourcePath), { recursive: true });
+  await fs.writeFile(targetPath, 'before-crash', 'utf8');
+  const before = await metadata(targetPath);
+
+  const store = createRunJournalStore({ basePath });
+  const run = await store.createRun({
+    jobId: 'crash-job',
+    runId: 'crash-run',
+    jobName: 'Crash smoke',
+    syncMode: 'oneWay',
+    job: { id: 'crash-job', sourcePaths: [], targetDestinations: [] }
+  });
+  await store.plan(run, [{
+    id: 'overwrite-1',
+    action: 'overwrite',
+    targetPath,
+    archivePath,
+    before,
+    expectedAfter: { size: Buffer.byteLength('after-crash') }
+  }]);
+  await fs.copyFile(targetPath, archivePath);
+  await store.recordOperation(run, 'overwrite-1', { status: 'archived', archivePath, before });
+  await fs.writeFile(targetPath, 'after-crash', 'utf8');
+  await fs.writeFile(sourcePath, 'after-crash', 'utf8');
+  const expectedAfter = await metadata(targetPath);
+  await fs.utimes(sourcePath, expectedAfter.mtimeMs / 1000, expectedAfter.mtimeMs / 1000);
+  await store.recordOperation(run, 'overwrite-1', { status: 'completed', sourcePath, expectedAfter });
+  process.exit(17);
+}
+
+main().catch(() => process.exit(18));
