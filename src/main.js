@@ -1,5 +1,10 @@
 const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, screen, Notification, safeStorage } = require('electron');
 const path = require('path');
+
+// The UI is simple forms/lists; software rendering handles it invisibly and
+// dropping the hardware-accelerated GPU process saves ~100 MB for an app that
+// idles in the tray. Must run before app is ready.
+app.disableHardwareAcceleration();
 // original-fs (via ./main/real-fs): the preview/compare, free-space, and history
 // pre-scan stat USER files here. Electron's default fs presents `.asar` files as
 // virtual directories, which made the preview flag synced app builds' `app.asar`
@@ -1079,14 +1084,20 @@ function createWindow({ startHidden = false } = {}) {
     if (!startHidden) mainWindow.show();
   });
 
-  // Closing the window hides it to the tray instead of quitting, so scheduled
+  // Closing the window sends it to the tray instead of quitting, so scheduled
   // jobs keep running. A real quit (tray menu / before-quit) sets isQuiting.
+  // When idle we DESTROY the window rather than hide it: that frees its
+  // renderer process (~90 MB) while the app sits in the tray, and
+  // showMainWindow() recreates it on demand. During an active run we only
+  // hide, so the live run/progress view survives reopening.
   mainWindow.on('close', (event) => {
-    if (!isQuiting && backgroundSettingsCache.closeToTray) {
+    if (!isQuiting && backgroundSettingsCache.closeToTray && isOperationBusy()) {
       event.preventDefault();
       mainWindow.hide();
       return;
     }
+    // Let the close proceed: the window (and its renderer) is torn down, and
+    // window-all-closed keeps the app alive in the tray when closeToTray is on.
     mainWindow = null;
   });
 }
@@ -1296,9 +1307,12 @@ if (!hasSingleInstanceLock) {
 }
 
 app.on('window-all-closed', () => {
-  // With close-to-tray the window is hidden (not closed), so this only fires on
-  // a real quit. Keep the app alive on macOS per platform convention.
-  if (!isMacOS()) app.quit();
+  // Idle close-to-tray DESTROYS the main window (freeing its renderer), so
+  // "all windows closed" no longer implies quit: the tray keeps the app alive.
+  // Keep the app alive on macOS per platform convention.
+  if (isMacOS()) return;
+  if (!isQuiting && backgroundSettingsCache.closeToTray && tray) return;
+  app.quit();
 });
 
 // Register every IPC handler. The handlers themselves live in src/main/ipc/*
