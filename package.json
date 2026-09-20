@@ -1,6 +1,6 @@
 {
   "name": "syncarr",
-  "version": "0.6.73",
+  "version": "0.6.74",
   "description": "Windows-first desktop sync app for safely pushing local folders to a NAS share.",
   "main": "src/main.js",
   "private": true,
@@ -21,6 +21,9 @@
   "build": {
     "appId": "ca.retile.syncarr",
     "productName": "Syncarr",
+    "extraMetadata": {
+      "description": "Syncarr"
+    },
     "directories": {
       "output": "dist"
     },
