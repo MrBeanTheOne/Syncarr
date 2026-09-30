@@ -435,7 +435,14 @@ async function buildRestorePointPlan({
   relativePath,
   filePath,
   restoreFolder,
-  includeResolvedFiles = false
+  includeResolvedFiles = false,
+  // Optional Set of normalizeRelative().toLowerCase() paths: only manifest
+  // files whose relativePath is in the set are resolved. Sound for the
+  // retention protection scan because a file can only ever resolve to history
+  // archives recorded under its own relativePath (see the historyIndex lookup
+  // in resolveRestorePointFileContent), so files outside the set cannot
+  // protect any retention candidate.
+  relativePathFilter = null
 } = {}) {
   const cleanJobId = sanitizeJobId(jobId);
   let resolved;
@@ -475,15 +482,18 @@ async function buildRestorePointPlan({
       const destination = destinations[index];
       if (!destination) continue;
       const files = Array.isArray(destination.files) ? destination.files : [];
-      const selected = files.filter((file) => restorePointFileMatchesScope(file, cleanFolder, cleanFile));
+      let selected = files.filter((file) => restorePointFileMatchesScope(file, cleanFolder, cleanFile));
+      if (relativePathFilter) {
+        selected = selected.filter((file) => relativePathFilter.has(normalizeRelative(file && file.relativePath).toLowerCase()));
+      }
       const selectedErrors = (Array.isArray(destination.errors) ? destination.errors : [])
         .filter((error) => restorePointErrorMatchesScope(error, cleanFolder, cleanFile));
-      const historyIndex = await buildHistoryArchiveIndex({
+      const historyIndex = selected.length ? await buildHistoryArchiveIndex({
         destinationPath: destination.path,
         historyFolderName: manifest.historyFolderName || HISTORY_FOLDER_NAME,
         jobId: manifest.jobId || cleanJobId,
         createdAfter: manifest.createdAt
-      });
+      }) : new Map();
       let availableLive = 0;
       let availableHistory = 0;
       let missing = 0;
@@ -1014,12 +1024,20 @@ async function restoreRestorePointToFolder({
   };
 }
 
-async function collectProtectedArchivePathsForRestorePoints({ basePath, jobId, targetPath, historyFolderName } = {}) {
+async function collectProtectedArchivePathsForRestorePoints({ basePath, jobId, targetPath, historyFolderName, candidateRelativePaths } = {}) {
   const cleanJobId = sanitizeJobId(jobId);
   const listed = await listRestorePoints({ basePath, jobId: cleanJobId, limit: 1000 });
   const historyRoot = path.resolve(String(targetPath || ''), String(historyFolderName || HISTORY_FOLDER_NAME));
   const protectedPaths = new Set();
   const degradedPoints = [];
+  // The protected set only ever spares retention deletion candidates, so when
+  // the caller names the candidates' original relative paths, resolution can
+  // skip every other manifest file. This is what keeps the per-sync scan cost
+  // proportional to the retention candidates instead of every file in every
+  // restore point (which pegged the CPU for minutes as points accumulated).
+  const relativePathFilter = Array.isArray(candidateRelativePaths) && candidateRelativePaths.length
+    ? new Set(candidateRelativePaths.map((item) => normalizeRelative(item).toLowerCase()))
+    : null;
 
   // Run buildRestorePointPlan per restore point in parallel. Each call resolves
   // every file in the point against live + history content, which over SMB
@@ -1029,7 +1047,8 @@ async function collectProtectedArchivePathsForRestorePoints({ basePath, jobId, t
       basePath,
       jobId: cleanJobId,
       restorePointId: point.id,
-      includeResolvedFiles: true
+      includeResolvedFiles: true,
+      relativePathFilter
     });
     return { point, result };
   });

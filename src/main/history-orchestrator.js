@@ -263,13 +263,19 @@ function createHistoryOrchestrator({ getUserDataPath, pathIsDirectory, assertRoo
     const uniqueCandidates = dedupeRetentionCandidates(candidates);
     let protectedArchivePaths = new Set();
     let degradedRestorePoints = [];
-    if (jobId) {
+    // Protection only exists to spare deletion candidates, so with no
+    // candidates there is nothing to protect and the (expensive) restore-point
+    // scan is skipped outright. With candidates, the scan resolves only the
+    // files that could protect one of them instead of every file in every
+    // restore point.
+    if (jobId && uniqueCandidates.length) {
       try {
         const protection = await collectProtectedArchivePathsForRestorePoints({
           basePath: getUserDataPath(),
           jobId,
           targetPath,
-          historyFolderName
+          historyFolderName,
+          candidateRelativePaths: uniqueCandidates.map((candidate) => candidate.relativePath)
         });
         protectedArchivePaths = protection.protectedPaths || new Set();
         degradedRestorePoints = protection.degradedPoints || [];

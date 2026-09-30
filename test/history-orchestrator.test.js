@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const { createHistoryOrchestrator } = require('../src/main/history-orchestrator');
+const { createRestorePointManifest } = require('../src/main/restore-points');
 
 const HISTORY_FOLDER = '.syncarr-history';
 
@@ -170,4 +171,90 @@ test('buildRetentionPlan flags older versions beyond the per-file keep count', a
   assert.equal(plan.summary.candidateBytes, 200, 'two 100-byte versions');
 
   await fs.rm(target, { recursive: true, force: true });
+});
+
+// Fixture for the restore-point protection path: a restore point snapshots the
+// target, then the live file changes and its old content is archived into
+// history — so that archive is the only verified restore content.
+async function makeProtectionFixture() {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'syncarr-history-protect-'));
+  const basePath = path.join(root, 'user-data');
+  const target = path.join(root, 'target');
+  await fs.mkdir(target, { recursive: true });
+  await fs.writeFile(path.join(target, 'document.txt'), 'snapshot content', 'utf8');
+  const point = await createRestorePointManifest({
+    basePath,
+    jobId: 'job-protect',
+    jobName: 'Protect job',
+    runId: 'point-1',
+    syncMode: 'oneWay',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    sourcePaths: [],
+    destinations: [{ path: target, label: 'Backup', required: true }],
+    excludePatterns: [],
+    historyFolderName: HISTORY_FOLDER,
+    historySummary: {},
+    robocopySummary: {},
+    status: 'success',
+    message: 'Complete'
+  });
+  assert.equal(point.ok, true);
+  const archivePath = path.join(target, HISTORY_FOLDER, 'versions', 'run-2', 'document.txt');
+  await fs.mkdir(path.dirname(archivePath), { recursive: true });
+  await fs.copyFile(path.join(target, 'document.txt'), archivePath);
+  await fs.writeFile(path.join(target, 'document.txt'), 'newer content', 'utf8');
+  await writeRun(target, { runId: 'run-2', jobId: 'job-protect', createdAt: '2026-01-02T00:00:00.000Z', files: [] });
+  // writeRun wrote an empty manifest; point it at the real archive.
+  await fs.writeFile(path.join(target, HISTORY_FOLDER, 'manifests', 'run-2.json'), JSON.stringify({
+    runId: 'run-2',
+    jobId: 'job-protect',
+    createdAt: '2026-01-02T00:00:00.000Z',
+    archivedFiles: [{ relativePath: 'document.txt', archivedRelativePath: 'versions/run-2/document.txt', previous: { size: 16 } }]
+  }));
+  return { root, basePath, target };
+}
+
+test('retention spares candidates a restore point needs via the scoped scan', async () => {
+  const fixture = await makeProtectionFixture();
+  const o = createHistoryOrchestrator({
+    getUserDataPath: () => fixture.basePath,
+    pathIsDirectory: realPathIsDirectory
+  });
+
+  // keepLatest=false + tiny max age makes the archived version a candidate;
+  // protection must still spare it because point-1 restores from it.
+  const plan = await o.buildRetentionPlan({
+    targetPath: fixture.target,
+    historyFolderName: HISTORY_FOLDER,
+    jobId: 'job-protect',
+    retentionMaxVersions: 1,
+    retentionMaxAgeDays: 1,
+    retentionKeepLatest: false
+  });
+  assert.equal(plan.candidates.length, 0, 'protected candidate is not removable');
+  assert.equal(plan.summary.protectedFiles, 1);
+
+  await fs.rm(fixture.root, { recursive: true, force: true });
+});
+
+test('retention skips the restore-point scan when nothing is removable', async () => {
+  const fixture = await makeProtectionFixture();
+  let scans = 0;
+  const o = createHistoryOrchestrator({
+    getUserDataPath: () => { scans += 1; return fixture.basePath; },
+    pathIsDirectory: realPathIsDirectory
+  });
+
+  const plan = await o.buildRetentionPlan({
+    targetPath: fixture.target,
+    historyFolderName: HISTORY_FOLDER,
+    jobId: 'job-protect',
+    retentionMaxVersions: 10,
+    retentionMaxAgeDays: 3650,
+    retentionKeepLatest: true
+  });
+  assert.equal(plan.candidates.length, 0);
+  assert.equal(scans, 0, 'no candidates -> protection scan never runs');
+
+  await fs.rm(fixture.root, { recursive: true, force: true });
 });

@@ -182,6 +182,30 @@ test('retention protection reports history payloads used by restore points', asy
   assert.equal(protection.degradedPoints.length, 0);
 });
 
+test('retention protection scoped to candidates only resolves matching files', async (t) => {
+  const fixture = await makeFixture(t);
+  await createPoint(fixture);
+  const archivedRelativePath = await archiveThenChangeLiveFile(fixture);
+
+  const scoped = await collectProtectedArchivePathsForRestorePoints({
+    basePath: fixture.basePath,
+    jobId: 'job-test',
+    targetPath: fixture.targetPath,
+    historyFolderName: '.syncarr-history',
+    candidateRelativePaths: ['Document.TXT']
+  });
+  assert.equal(scoped.protectedPaths.has(archivedRelativePath.toLowerCase()), true, 'candidate match is case-insensitive');
+
+  const unrelated = await collectProtectedArchivePathsForRestorePoints({
+    basePath: fixture.basePath,
+    jobId: 'job-test',
+    targetPath: fixture.targetPath,
+    historyFolderName: '.syncarr-history',
+    candidateRelativePaths: ['other/file.txt']
+  });
+  assert.equal(unrelated.protectedPaths.size, 0, 'files outside the candidate set are not resolved');
+});
+
 test('legacy restore points without hashes remain browse-only', async (t) => {
   const fixture = await makeFixture(t);
   await fs.writeFile(path.join(fixture.targetPath, 'legacy.txt'), 'legacy', 'utf8');

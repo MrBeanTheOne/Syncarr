@@ -4,6 +4,10 @@ const { sanitizeJobId } = require('./job-model');
 
 const JOURNAL_SCHEMA_VERSION = 1;
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'rolled-back', 'dismissed', 'superseded']);
+// Journals older than the newest N per job are deleted once terminal; matches
+// the lastRuns history depth. Non-terminal (interrupted) journals are never
+// pruned — recovery must be able to surface them regardless of age.
+const JOURNAL_RETENTION_PER_JOB = 20;
 
 function cleanId(input, fallback = 'run') {
   const value = String(input || fallback)
@@ -96,13 +100,38 @@ function createRunJournalStore({ basePath, now = () => new Date() } = {}) {
     });
   }
 
+  async function pruneJobDir(jobDir, keep = JOURNAL_RETENTION_PER_JOB) {
+    let names = [];
+    try {
+      names = (await fs.readdir(jobDir)).filter((name) => name.toLowerCase().endsWith('.jsonl'));
+    } catch {
+      return;
+    }
+    // Run ids are ISO timestamps, so a lexicographic sort is chronological.
+    names.sort().reverse();
+    for (const name of names.slice(keep)) {
+      const journalPath = path.join(jobDir, name);
+      try {
+        const journal = await readJournal(journalPath);
+        if (TERMINAL_STATUSES.has(journal.status)) await fs.unlink(journalPath);
+      } catch {
+        // A journal we cannot confirm as terminal may still drive recovery.
+      }
+    }
+  }
+
   function finish(journal, status, result = {}) {
     const cleanStatus = TERMINAL_STATUSES.has(status) ? status : 'failed';
+    const journalPath = typeof journal === 'string' ? journal : journal && journal.path;
     return record(journal, {
       type: 'terminal',
       status: cleanStatus,
       completedAt: now().toISOString(),
       result
+    }).then((written) => {
+      if (!journalPath) return written;
+      // Retention rides on finalization: the only moment journal count grows.
+      return pruneJobDir(path.dirname(journalPath)).catch(() => {}).then(() => written);
     });
   }
 
