@@ -293,9 +293,7 @@ body.app-busy .app-shell::after {
   gap: 1.1rem;
   padding: 1.4rem 1.15rem;
   border-right: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(10, 14, 20, 0.92), rgba(6, 8, 12, 0.92));
-  backdrop-filter: blur(8px);
-}
+  background: linear-gradient(180deg, rgba(10, 14, 20, 0.92), rgba(6, 8, 12, 0.92));}
 
 .brand {
   display: flex;
@@ -515,9 +513,7 @@ button.job-row.active {
   gap: 1rem;
   margin: -1.4rem -1.6rem 1.3rem;
   padding: 1rem 1.6rem;
-  background: linear-gradient(180deg, rgba(8, 11, 17, 0.88), rgba(8, 11, 17, 0.66));
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(8, 11, 17, 0.88), rgba(8, 11, 17, 0.66));  border-bottom: 1px solid var(--border);
 }
 
 .topbar-title {
@@ -1221,7 +1217,6 @@ button.history-entry {
   font-weight: 720;
   letter-spacing: 0.11em;
   text-transform: uppercase;
-  backdrop-filter: blur(10px);
 }
 
 button.history-entry {
@@ -1512,9 +1507,7 @@ button.run-action.primary small {
 .run-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(3, 5, 9, 0.55);
-  backdrop-filter: blur(7px);
-  animation: scrimIn 0.3s var(--ease) both;
+  background: rgba(3, 5, 9, 0.55);  animation: scrimIn 0.3s var(--ease) both;
 }
 @keyframes scrimIn {
   from { opacity: 0; }
@@ -1863,9 +1856,7 @@ button.ghost:hover:not(:disabled) {
   border: 1px solid var(--border-2);
   border-radius: var(--r-pill);
   background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
-  box-shadow: var(--shadow-2), 0 0 0 1px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-}
+  box-shadow: var(--shadow-2), 0 0 0 1px rgba(0, 0, 0, 0.4);}
 
 .save-bar-msg {
   display: inline-flex;
@@ -3339,9 +3330,7 @@ button.job-row.disabled small {
 .manual-run-confirm-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(3, 5, 9, 0.68);
-  backdrop-filter: blur(8px);
-}
+  background: rgba(3, 5, 9, 0.68);}
 .manual-run-confirm-modal {
   position: relative;
   width: min(660px, 100%);
@@ -4862,9 +4851,7 @@ button.job-row.active {
 .app-dialog-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(3, 5, 9, 0.68);
-  backdrop-filter: blur(8px);
-  animation: scrimIn 0.22s var(--ease) both;
+  background: rgba(3, 5, 9, 0.68);  animation: scrimIn 0.22s var(--ease) both;
 }
 .app-dialog {
   position: relative;
