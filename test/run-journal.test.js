@@ -36,12 +36,14 @@ test('terminal journal is no longer reported as incomplete', async (t) => {
 test('finishing a run prunes old terminal journals but never interrupted ones', async (t) => {
   const store = await setup(t);
   // 22 terminal runs + 1 old interrupted run; retention keeps the newest 20
-  // terminal-or-not and only deletes terminal journals beyond that.
+  // terminal-or-not and only deletes terminal journals beyond that. The newer
+  // runs FAIL, so they do not supersede the interrupted journal — only a
+  // completed run attests the job's data is in a good state.
   const interrupted = await store.createRun({ runId: '2026-01-01T00-00-00-000Z', jobId: 'job-a' });
   for (let i = 0; i < 22; i += 1) {
     const runId = `2026-02-01T00-00-${String(i).padStart(2, '0')}-000Z`;
     const run = await store.createRun({ runId, jobId: 'job-a' });
-    await store.finish(run, 'completed', { ok: true });
+    await store.finish(run, 'failed', { ok: false });
   }
 
   const names = (await fs.readdir(path.dirname(interrupted.path))).sort();
@@ -53,6 +55,29 @@ test('finishing a run prunes old terminal journals but never interrupted ones', 
   assert.ok(!names.includes('2026-02-01T00-00-01-000Z.jsonl'));
   assert.ok(names.includes('2026-02-01T00-00-02-000Z.jsonl'));
   assert.equal((await store.list({ incompleteOnly: true })).length, 1);
+});
+
+test('a completed run supersedes older interrupted journals of the same job only', async (t) => {
+  const store = await setup(t);
+  const staleInterrupted = await store.createRun({ runId: '2026-03-01T00-00-00-000Z', jobId: 'job-a' });
+  await store.recordOperation(staleInterrupted, 'copy:file.txt', { status: 'archived' });
+  await store.createRun({ runId: '2026-03-01T00-00-00-000Z', jobId: 'job-b' });
+
+  // A newer FAILED run does not supersede — the data was not brought current.
+  const failedRun = await store.createRun({ runId: '2026-03-02T00-00-00-000Z', jobId: 'job-a' });
+  await store.finish(failedRun, 'failed', { ok: false });
+  assert.equal((await store.get('job-a', '2026-03-01T00-00-00-000Z')).status, 'interrupted');
+
+  // A newer COMPLETED run supersedes the stale interrupted journal...
+  const completedRun = await store.createRun({ runId: '2026-03-03T00-00-00-000Z', jobId: 'job-a' });
+  await store.finish(completedRun, 'completed', { ok: true });
+  assert.equal((await store.get('job-a', '2026-03-01T00-00-00-000Z')).status, 'superseded');
+
+  // ...but never touches another job's interrupted journal.
+  assert.equal((await store.get('job-b', '2026-03-01T00-00-00-000Z')).status, 'interrupted');
+  const incomplete = await store.list({ incompleteOnly: true });
+  assert.equal(incomplete.length, 1);
+  assert.equal(incomplete[0].jobId, 'job-b');
 });
 
 test('journal replay skips a corrupt torn line', async (t) => {

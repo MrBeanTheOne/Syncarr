@@ -120,6 +120,37 @@ function createRunJournalStore({ basePath, now = () => new Date() } = {}) {
     }
   }
 
+  // A completed run attests the job's live data is in a good, current state:
+  // any OLDER interrupted journal for the same job can no longer be resumed
+  // meaningfully (resume = a fresh scan, which this run just did) and its
+  // rollback would be refused as 'manual' because the live files have moved
+  // on. Mark them superseded so they stop nagging on every startup.
+  async function supersedeOlderInterrupted(jobDir, currentName) {
+    let names = [];
+    try {
+      names = (await fs.readdir(jobDir)).filter((name) =>
+        name.toLowerCase().endsWith('.jsonl') && name !== currentName && name < currentName);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const journalPath = path.join(jobDir, name);
+      try {
+        const journal = await readJournal(journalPath);
+        if (TERMINAL_STATUSES.has(journal.status)) continue;
+        await appendEvent(journalPath, {
+          type: 'terminal',
+          status: 'superseded',
+          at: now().toISOString(),
+          completedAt: now().toISOString(),
+          result: { message: 'A newer run of this job completed successfully after this run was interrupted.' }
+        });
+      } catch {
+        // An unreadable journal stays as-is for manual review.
+      }
+    }
+  }
+
   function finish(journal, status, result = {}) {
     const cleanStatus = TERMINAL_STATUSES.has(status) ? status : 'failed';
     const journalPath = typeof journal === 'string' ? journal : journal && journal.path;
@@ -128,10 +159,14 @@ function createRunJournalStore({ basePath, now = () => new Date() } = {}) {
       status: cleanStatus,
       completedAt: now().toISOString(),
       result
-    }).then((written) => {
+    }).then(async (written) => {
       if (!journalPath) return written;
+      const jobDir = path.dirname(journalPath);
+      if (cleanStatus === 'completed') {
+        await supersedeOlderInterrupted(jobDir, path.basename(journalPath)).catch(() => {});
+      }
       // Retention rides on finalization: the only moment journal count grows.
-      return pruneJobDir(path.dirname(journalPath)).catch(() => {}).then(() => written);
+      return pruneJobDir(jobDir).catch(() => {}).then(() => written);
     });
   }
 

@@ -111,12 +111,16 @@ function buildInterruptedRunsNotification(interruptedRuns) {
   const count = runs.length;
   const names = [...new Set(runs.map((run) => (run && (run.jobName || run.jobId)) || '').filter(Boolean))];
   const nameHint = names.length === 1 ? `"${names[0]}"` : `${count} job(s)`;
+  // Name the run's date so an old interruption is not mistaken for the run
+  // the user just watched complete successfully.
+  const newestStart = runs.map((run) => String(run.startedAt || '').slice(0, 10)).filter(Boolean)[0] || '';
+  const whenHint = newestStart ? ` started on ${newestStart}` : '';
 
   return {
     title: count === 1
       ? 'Syncarr: an interrupted run needs review'
       : `Syncarr: ${count} interrupted runs need review`,
-    body: `A previous run of ${nameHint} did not finish (likely a crash or force-quit). Open Syncarr to resume or roll it back.`.slice(0, 240),
+    body: `A run of ${nameHint}${whenHint} did not finish (likely a crash or force-quit). Open Syncarr to resume or roll it back.`.slice(0, 240),
     urgent: true,
     silent: false
   };

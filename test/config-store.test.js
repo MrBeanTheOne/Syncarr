@@ -21,6 +21,31 @@ test('config store serializes background and GUI writes', async (t) => {
   assert.equal(saved.jobs[0].name, 'Second');
 });
 
+test('config store treats a first launch with no config as healthy defaults', async (t) => {
+  const userData = await fs.mkdtemp(path.join(os.tmpdir(), 'syncarr-config-fresh-'));
+  t.after(() => fs.rm(userData, { recursive: true, force: true }));
+  const store = createConfigStore({ getPath: () => userData });
+
+  const config = await store.readConfig();
+  assert.ok(Array.isArray(config.jobs) && config.jobs.length >= 1);
+  const health = store.getHealth();
+  assert.equal(health.ok, true);
+  assert.equal(health.recovered, false);
+  assert.equal(health.source, 'defaults');
+  assert.equal(health.message, '');
+});
+
+test('config store still reports unhealthy when an existing config is unreadable with no backups', async (t) => {
+  const userData = await fs.mkdtemp(path.join(os.tmpdir(), 'syncarr-config-corrupt-'));
+  t.after(() => fs.rm(userData, { recursive: true, force: true }));
+  const store = createConfigStore({ getPath: () => userData });
+
+  await fs.writeFile(store.getConfigPath(), '{not valid json', 'utf8');
+  await store.readConfig();
+  assert.equal(store.getHealth().ok, false);
+  assert.match(store.getHealth().message, /No readable configuration/);
+});
+
 test('config store keeps rotating backups and recovers malformed primary config', async (t) => {
   const userData = await fs.mkdtemp(path.join(os.tmpdir(), 'syncarr-config-recovery-'));
   t.after(() => fs.rm(userData, { recursive: true, force: true }));

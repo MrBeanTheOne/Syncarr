@@ -33,6 +33,12 @@ test('buildInterruptedRunsNotification names a single interrupted job', () => {
   assert.equal(n.urgent, true);
 });
 
+test('buildInterruptedRunsNotification names the interrupted run date when known', () => {
+  const n = buildInterruptedRunsNotification([{ jobName: 'AI Sandbox', startedAt: '2026-10-06T08:30:39.472Z' }]);
+  assert.ok(n);
+  assert.match(n.body, /started on 2026-10-06/);
+});
+
 test('buildInterruptedRunsNotification counts multiple interrupted runs', () => {
   const n = buildInterruptedRunsNotification([{ jobName: 'A' }, { jobId: 'b' }, { jobName: 'C' }]);
   assert.ok(n);

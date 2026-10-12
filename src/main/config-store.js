@@ -33,6 +33,9 @@ function createConfigStore(app) {
         { path: getTempPath(), source: 'temporary file' },
         ...getBackupPaths().map((backupPath, index) => ({ path: backupPath, source: `backup ${index + 1}` }))
       ];
+      // Distinguish "a config existed but is unreadable" (alarm) from "no
+      // config has ever been written" (a normal first launch, not an error).
+      let sawExistingFile = !(primaryError && primaryError.code === 'ENOENT');
       for (const candidate of candidates) {
         try {
           const config = await readJson(candidate.path);
@@ -43,17 +46,19 @@ function createConfigStore(app) {
             message: `The primary configuration could not be read. Syncarr recovered ${candidate.source}.`
           };
           return config;
-        } catch {
-          // Try the next recovery candidate.
+        } catch (candidateError) {
+          if (!candidateError || candidateError.code !== 'ENOENT') sawExistingFile = true;
         }
       }
 
-      health = {
-        ok: false,
-        recovered: false,
-        source: 'defaults',
-        message: `No readable configuration or backup was found: ${primaryError.message || String(primaryError)}`
-      };
+      health = sawExistingFile
+        ? {
+            ok: false,
+            recovered: false,
+            source: 'defaults',
+            message: `No readable configuration or backup was found: ${primaryError.message || String(primaryError)}`
+          }
+        : { ok: true, recovered: false, source: 'defaults', message: '' };
       return normalizeConfig({});
     }
   }
