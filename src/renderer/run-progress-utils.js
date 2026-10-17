@@ -39,11 +39,17 @@
       if (isCompare) return isMirrorMode(mode) ? 'Found delete candidate…' : 'Found destination-only file…';
       return isMirrorMode(mode) ? 'Deleting destination-only file…' : 'Checking destination-only file…';
     }
-    if (kind === 'skipped') return label.includes('older') ? 'Skipping older source file…' : 'Skipping unchanged file…';
+    if (kind === 'skipped') {
+      if (label.includes('older')) return isCompare ? 'Found older source file…' : 'Skipping older source file…';
+      return isCompare ? 'Checking unchanged file…' : 'Skipping unchanged file…';
+    }
     if (kind === 'copied') {
-      if (label.includes('new')) return 'Copying new file…';
-      if (label.includes('newer') || label.includes('changed') || label.includes('tweaked')) return 'Replacing changed file…';
-      return 'Copying file…';
+      // A compare lists what WOULD happen — never claim the file is being copied.
+      if (label.includes('newer') || label.includes('changed') || label.includes('tweaked')) {
+        return isCompare ? 'Found changed file…' : 'Replacing changed file…';
+      }
+      if (label.includes('new')) return isCompare ? 'Found new file…' : 'Copying new file…';
+      return isCompare ? 'Found file to copy…' : 'Copying file…';
     }
     return isCompare ? 'Scanning source and destination differences…' : 'Processing files…';
   }

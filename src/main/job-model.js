@@ -12,7 +12,11 @@ const HISTORY_FOLDER_NAME = '.syncarr-history';
 const DEFAULT_EXCLUDE_PATTERNS = ['node_modules', '.git', 'Thumbs.db', '.DS_Store', '*.ffs_db', '*.ffs_lock', '*.ffs_tmp', HISTORY_FOLDER_NAME];
 const DEFAULT_JOB_ID = 'job-default';
 const PATH_CHECK_TIMEOUT_MS = 2500;
-const ROBOCOPY_COMPARE_TIMEOUT_MS = 60000;
+// Inactivity window for the compare watchdog (sync-engine-runner rearms it on
+// every chunk of engine output). It is NOT a total-time cap: a 60s overall
+// deadline killed healthy compares of large libraries partway through the
+// listing — and a race reported the kill as a successful compare.
+const ROBOCOPY_COMPARE_TIMEOUT_MS = 300000;
 const SUPPORTED_SYNC_MODES = new Set(['oneWay', 'mirror', 'twoWay']);
 const COMPARE_SYNC_MODES = new Set(['oneWay', 'mirror', 'twoWay']);
 const RUNNABLE_SYNC_MODES = new Set(['oneWay', 'mirror', 'twoWay']);

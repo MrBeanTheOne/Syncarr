@@ -176,6 +176,7 @@ function createSyncEngineRunner({
       let endedResolveTimer = null;
       let exitResolveTimer = null;
       let observedExitCode = null;
+      let timedOutMessage = '';
 
       const getCombinedOutput = () => stdout + (stderr ? `\n${stderr}` : '');
 
@@ -202,6 +203,7 @@ function createSyncEngineRunner({
         else stdout += text;
         if (typeof readProgress === 'function') readProgress(text);
         emitText(stream, text);
+        armTimeout();
         scheduleEndedResolve();
       };
 
@@ -223,6 +225,16 @@ function createSyncEngineRunner({
 
       const finishFromProcessEnd = (code, reasonText = '') => {
         flushDecoders();
+
+        // A timed-out child usually dies fast enough that its 'close' event
+        // beats the forced-resolve timer. Without this guard the close path
+        // won — and with no summary block in the truncated output the exit
+        // code was inferred as 0, silently reporting a killed compare as a
+        // successful one that just "found" whatever the first 60s printed.
+        if (timedOutMessage) {
+          finish({ code: 16, output: getCombinedOutput() + `\n${timedOutMessage}\n` });
+          return;
+        }
 
         if (isActiveRunCancelled(runId)) {
           const message = `\n${cancelMessageFor(Boolean(dryRun))}\n`;
@@ -280,20 +292,30 @@ function createSyncEngineRunner({
         finishFromProcessEnd(Number.isFinite(code) ? code : observedExitCode);
       });
 
-      if (timeoutMs && timeoutMs > 0) {
+      // Inactivity watchdog, not a total-time cap. A large library legitimately
+      // takes minutes of robocopy runtime (184k files ≈ 77s on wired LAN, far
+      // longer over Wi-Fi), so a fixed overall deadline killed healthy compares
+      // partway through the listing. Robocopy goes quiet only while comparing a
+      // single directory's entries, so "no output at all for the full window"
+      // is the actual signature of an unreachable share or hung process.
+      const armTimeout = () => {
+        if (!timeoutMs || timeoutMs <= 0 || settled || timedOutMessage) return;
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         timeoutTimer = setTimeout(() => {
-          const message = `${engine.label} compare timed out after ${Math.round(timeoutMs / 1000)} seconds. Check for an unavailable source, destination, mapped drive, or network share.`;
-          emitText('error', `\n${message}\n`);
+          timedOutMessage = `${engine.label} compare produced no output for ${Math.round(timeoutMs / 1000)} seconds and was stopped. Check for an unavailable source, destination, mapped drive, or network share.`;
+          emitText('error', `\n${timedOutMessage}\n`);
           try {
             child.kill('SIGTERM');
           } catch {
             // Fall through to forced resolve below.
           }
           forceResolveTimer = setTimeout(() => {
-            finish({ code: 16, output: getCombinedOutput() + `\n${message}\n` });
+            finish({ code: 16, output: getCombinedOutput() + `\n${timedOutMessage}\n` });
           }, 2500);
         }, timeoutMs);
-      }
+      };
+
+      armTimeout();
     });
   }
 

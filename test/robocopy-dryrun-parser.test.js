@@ -373,6 +373,79 @@ test('buildRobocopyDryRunPreview marks the preview truncated past the 1000 file 
   assert.equal(summary.scanned, PREVIEW_FILE_LIMIT + 5);
 });
 
+// Real robocopy /L shapes: a header line for EVERY directory ("New Dir <n> <path>\"
+// for source-only dirs, "<n> <path>\" for existing ones), name-only file lines
+// beneath, and a single "*EXTRA Dir" line for a destination-only directory whose
+// contents robocopy never enumerates.
+const DIR_HEADER_OUTPUT = [
+  '  Source : C:\\Photos\\',
+  '    Dest : \\\\NAS\\Photos\\',
+  '',
+  '\t                   1\tC:\\Photos\\',
+  '\t  New Dir          3\tC:\\Photos\\Background\\',
+  '\t    New File  \t\t   2.1 m\tFond.png',
+  '\t               89136\tC:\\Photos\\CDG UNZIP\\',
+  '\t  *EXTRA File \t\t   1.4 m\tleftover.cdg',
+  '\t    Newer     \t\t   7.6 m\tdance monkey.mp4',
+  '\t  *EXTRA Dir  \t-1\t\\\\NAS\\Photos\\Old Sessions\\',
+  ''
+].join('\r\n');
+
+test('buildRobocopyDryRunPreview tracks plain directory headers, not just New Dir', () => {
+  const { files } = buildRobocopyDryRunPreview({
+    output: DIR_HEADER_OUTPUT,
+    sourceRoots: sampleRoots(),
+    destinations: [{ path: '\\\\NAS\\Photos', label: 'Photos', required: true }],
+    historyEnabled: true,
+    historyFolderName: '.syncarr-history',
+    syncMode: 'mirror'
+  });
+
+  const newFile = files.find((f) => f.action === 'copy-new');
+  assert.equal(newFile.relativePath, 'Background/Fond.png');
+
+  // Without plain-header tracking these resolved against the stale
+  // "Background" directory instead of "CDG UNZIP".
+  const extraFile = files.find((f) => f.reason === 'robocopy-extra-mirror');
+  assert.equal(extraFile.relativePath, 'CDG UNZIP/leftover.cdg');
+  const newer = files.find((f) => f.action === 'update-archive');
+  assert.equal(newer.relativePath, 'CDG UNZIP/dance monkey.mp4');
+});
+
+test('buildRobocopyDryRunPreview surfaces *EXTRA Dir as a mirror delete candidate folder', () => {
+  const { summary, files } = buildRobocopyDryRunPreview({
+    output: DIR_HEADER_OUTPUT,
+    sourceRoots: sampleRoots(),
+    destinations: [{ path: '\\\\NAS\\Photos', label: 'Photos', required: true }],
+    historyEnabled: true,
+    historyFolderName: '.syncarr-history',
+    syncMode: 'mirror'
+  });
+
+  const extraDir = files.find((f) => f.reason === 'robocopy-extra-dir-mirror');
+  assert.ok(extraDir, 'destination-only folder must appear in the preview');
+  assert.equal(extraDir.action, 'extra');
+  assert.equal(extraDir.label, 'Mirror delete candidate (folder)');
+  assert.equal(extraDir.relativePath, 'Old Sessions');
+  // Extra file + extra dir both count as destination-only.
+  assert.equal(summary.destinationOnly, 2);
+});
+
+test('buildRobocopyDryRunPreview labels *EXTRA Dir as kept destination-only in one-way mode', () => {
+  const { files } = buildRobocopyDryRunPreview({
+    output: DIR_HEADER_OUTPUT,
+    sourceRoots: sampleRoots(),
+    destinations: [{ path: '\\\\NAS\\Photos', label: 'Photos', required: true }],
+    historyEnabled: true,
+    historyFolderName: '.syncarr-history',
+    syncMode: 'oneWay'
+  });
+
+  const extraDir = files.find((f) => f.reason === 'robocopy-extra-dir-one-way');
+  assert.ok(extraDir);
+  assert.equal(extraDir.label, 'Destination-only folder');
+});
+
 test('buildRobocopyDryRunPreview handles empty output gracefully', () => {
   const { summary, files } = buildRobocopyDryRunPreview({
     output: '',

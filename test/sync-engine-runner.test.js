@@ -105,6 +105,54 @@ test('runSingleEngineInvocation infers an exit code when close carries none', as
   assert.equal(result.code, 3);
 });
 
+test('a timed-out compare is fatal even when the killed child closes before the forced resolve', async () => {
+  const child = makeFakeChild();
+  // Killing the child makes it close immediately — the close path used to beat
+  // the forced-resolve timer and finalize the truncated output as code 0.
+  child.kill = () => {
+    child.killed = true;
+    child.emit('close', null);
+  };
+  const { engine, iface } = makeFakeEngine(child);
+  iface.inferExitCodeFromOutput = () => 0; // what a summary-less truncation infers
+  const { runner } = makeRunner();
+
+  const promise = runner.runSingleEngineInvocation({
+    engine, iface, args: [], runId: 'r1', dryRun: true, readProgress: () => {}, timeoutMs: 50
+  });
+
+  child.stdout.emit('data', Buffer.from('New File  123  partial.txt\n'));
+  const result = await promise;
+
+  assert.equal(result.code, 16, 'a timeout must never be inferred as success');
+  assert.ok(!result.canceled);
+  assert.match(result.output, /produced no output for/);
+  assert.match(result.output, /partial\.txt/, 'the partial output is preserved for diagnosis');
+});
+
+test('engine output rearms the compare timeout instead of counting against a total cap', async () => {
+  const child = makeFakeChild();
+  const { engine, iface } = makeFakeEngine(child);
+  const { runner } = makeRunner();
+
+  const promise = runner.runSingleEngineInvocation({
+    engine, iface, args: [], runId: 'r1', dryRun: true, readProgress: () => {}, timeoutMs: 120
+  });
+
+  // Keep emitting within the window for well past the window's total length —
+  // a healthy-but-slow compare must never be killed while it is still talking.
+  for (let i = 0; i < 4; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    child.stdout.emit('data', Buffer.from(`dir ${i}\n`));
+  }
+  assert.equal(child.killed, false, 'the watchdog must not fire while output flows');
+
+  child.emit('close', 0);
+  const result = await promise;
+  assert.equal(result.code, 0);
+  assert.ok(!/produced no output/.test(result.output));
+});
+
 test('runSyncEngineSequence reports a destination-prep failure as fatal instead of rejecting', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'syncarr-runner-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));

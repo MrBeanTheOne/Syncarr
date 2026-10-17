@@ -120,6 +120,25 @@ function robocopyDisplaySizeToBytes(value, unit) {
   return Math.round(amount * Math.pow(1024, power));
 }
 
+// A destination-only ("*EXTRA Dir") path is destination-side, so it is made
+// relative to the root's destinationPath rather than sourcePath.
+function makeExtraDirRelative({ root, dirPath }) {
+  const clean = String(dirPath || '').trim().replace(/[\\/]+$/, '');
+  if (!clean) return '';
+
+  let relativePath = '';
+  try {
+    relativePath = path.win32.relative(root.destinationPath || '', clean);
+  } catch {
+    relativePath = clean;
+  }
+
+  if (!relativePath || relativePath.startsWith('..') || path.win32.isAbsolute(relativePath)) relativePath = clean;
+  if (root.relativePrefix) relativePath = path.win32.join(root.relativePrefix, relativePath);
+  if (root.destinationLabel && root.destinationCount > 1) relativePath = path.win32.join(root.destinationLabel, relativePath);
+  return normalizeRelativeForManifest(relativePath);
+}
+
 function makeRelativeFromRobocopy({ root, currentDirectory, detail }) {
   const fileName = stripRobocopySize(detail);
   if (!fileName) return '';
@@ -211,7 +230,43 @@ function buildRobocopyDryRunPreview({ output, sourceRoots, destinations, history
       continue;
     }
 
-    const dirMatch = line.match(/^New Dir\s+\d+\s+(.+)$/i);
+    // A destination-only directory is a single "*EXTRA Dir" line — robocopy
+    // does not list the files inside it — so surface the folder itself as a
+    // delete candidate or the whole subtree stays invisible in Compare.
+    const extraDirMatch = line.match(/^\*EXTRA Dir\s+(?:-?[\d,]+\s+)?(.+)$/i);
+    if (extraDirMatch) {
+      const relativePath = currentRoot ? makeExtraDirRelative({ root: currentRoot, dirPath: extraDirMatch[1] }) : '';
+      if (relativePath) {
+        const isMirror = cleanMode === 'mirror';
+        summary.destinationOnly += 1;
+        addFile({
+          action: 'extra',
+          label: isMirror ? 'Mirror delete candidate (folder)' : 'Destination-only folder',
+          relativePath,
+          reason: isMirror ? 'robocopy-extra-dir-mirror' : 'robocopy-extra-dir-one-way',
+          sourceRoot: currentRoot.sourcePath,
+          sourceLabel: currentRoot.label || '',
+          destinationPath: currentRoot.destination && currentRoot.destination.path ? currentRoot.destination.path : '',
+          destinationLabel: currentRoot.destinationLabel || '',
+          destinationRequired: currentRoot.destinationRequired !== false,
+          source: null,
+          // ponytail: /L never enumerates an extra dir's contents, so counts and
+          // bytes for the subtree are unknown here; the sync-phase JS plan
+          // enumerates them exactly before anything is archived or deleted.
+          target: { size: 0, mtimeMs: null, modifiedAt: null },
+          copyBytes: 0,
+          archiveBytes: 0
+        });
+      }
+      continue;
+    }
+
+    // Robocopy prints a header for EVERY directory it enters — "New Dir <n>
+    // <path>\" for source-only dirs, "<n> <path>\" for existing ones. Track
+    // both so per-file lines (which carry names only) resolve against the
+    // right directory; tracking only "New Dir" left currentDirectory stale
+    // for files and extras inside existing directories.
+    const dirMatch = line.match(/^(?:New Dir\s+)?-?[\d,]+\s+(.+[\\/])$/i);
     if (dirMatch) {
       currentDirectory = dirMatch[1].trim();
       currentRoot = findRobocopyRootForPath(roots, currentDirectory, currentDestination) || currentRoot;

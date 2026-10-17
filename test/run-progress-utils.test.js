@@ -34,10 +34,22 @@ test('getProgressActionStatus produces human status lines per kind/mode', () => 
   assert.equal(getProgressActionStatus({ kind: 'failed' }), 'Handling file issue…');
   assert.equal(getProgressActionStatus({ kind: 'copied', label: 'new' }), 'Copying new file…');
   assert.equal(getProgressActionStatus({ kind: 'copied', label: 'changed' }), 'Replacing changed file…');
+  // "Newer" contains "new" — it must classify as a replace, not a new-file copy.
+  assert.equal(getProgressActionStatus({ kind: 'copied', label: 'Newer' }), 'Replacing changed file…');
   assert.equal(getProgressActionStatus({ kind: 'skipped', label: 'older copy' }), 'Skipping older source file…');
   assert.equal(getProgressActionStatus({ kind: 'extra' }, 'mirror', true), 'Found delete candidate…');
   assert.equal(getProgressActionStatus({ kind: 'extra' }, 'sync', true), 'Found destination-only file…');
   assert.equal(getProgressActionStatus({ kind: 'extra' }, 'mirror', false), 'Deleting destination-only file…');
+});
+
+test('getProgressActionStatus never claims copy/replace/skip work during a compare', () => {
+  // A compare lists what WOULD happen; "Copying file…" during a dry run made
+  // users believe the sync was already writing.
+  assert.equal(getProgressActionStatus({ kind: 'copied', label: 'New File' }, 'mirror', true), 'Found new file…');
+  assert.equal(getProgressActionStatus({ kind: 'copied', label: 'Newer' }, 'mirror', true), 'Found changed file…');
+  assert.equal(getProgressActionStatus({ kind: 'copied', label: 'Changed' }, 'sync', true), 'Found changed file…');
+  assert.equal(getProgressActionStatus({ kind: 'skipped', label: 'older copy' }, 'sync', true), 'Found older source file…');
+  assert.equal(getProgressActionStatus({ kind: 'skipped', label: 'same' }, 'sync', true), 'Checking unchanged file…');
 });
 
 test('getProgressFileLine appends the file path to the de-ellipsised action', () => {
